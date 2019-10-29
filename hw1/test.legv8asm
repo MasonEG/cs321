@@ -1,0 +1,363 @@
+//---- Main Start ----
+main:
+
+//Setup the "array" in reverse order starting from the number 90 (Z in ASCII)
+//Note: the "array" is stored in main memory starting from offset 0
+
+	MOVZ X0, #26, LSL #0
+	BL ArrayBuilderReverse
+
+//Sort the array in ascending order
+
+	MOVZ X1, #200, LSL #0
+	BL SelectionSort
+
+//Search for the ASCII letter O
+
+	MOVZ X1, #79, LSL #0
+	MOVZ X2, #200, LSL #0
+	BL BinarySearchIterative
+
+//Store our output into unused register X22
+
+	MOVZ X22, #0, LSL #0
+	ADD X22, X22, LR
+
+//Search for the ASCII letter O
+
+	MOVZ X0, #200, LSL #0
+	MOVZ X1, #79, LSL #0
+	BL BinarySearchRecursiveSetup
+
+//Subtract our output from register X22
+
+	SUB X22, X22, LR
+	
+//Store the outcome of the subtraction into main memory at offset 0
+
+	STUR X22, [XZR, #0]
+
+//Note: The start of our "array" is replaced by the final output value hence there being 0 instead of the letter A
+
+	B mainEnd
+//---- Main End ----
+
+//---- Functions Start ----
+ArrayBuilder: //Parameters (X0 array_length)
+
+	SUBI SP, SP, #8
+	STUR LR, [SP, #0]
+	
+	MOVZ X10, #0, LSL #0
+	MOVZ X11, #0, LSL #0
+	
+	ArrayBuilderForLoop:
+		
+		SUBS X17, X11, X0
+		B.GT ArrayBuilderEnd
+		
+		ADDI X9, X11, #65
+		STUR X9, [X10, #0]
+		
+		ADDI X11, X11, #1
+		ADDI X10, X10, #8
+		
+		B ArrayBuilderForLoop
+	
+	ArrayBuilderEnd:
+	LDUR X9, [SP, #0]
+	ADDI SP, SP, #8
+	//DUMP
+	BR X9
+	
+ArrayBuilderReverse: //Parameters(X0 arrayLength)
+	SUBI SP, SP, #8
+	STUR LR, [SP, #0]
+	
+	MOVZ X9, #0, LSL #0
+	MOVZ X10, #0, LSL #0
+	MOVZ X11, #0, LSL #0
+	
+	ADD X9, X9, X0
+	ADDI X10, X10, #90
+	
+	ArrayBuilderReverseLoop:
+		
+		STUR X10, [X11, #0]
+		
+		ADDI X11, X11, #8
+		
+		SUBI X9, X9, #1
+		SUBI X10, X10, #1
+		
+		CBZ X9, ArrayBuilderReverseEnd
+		
+		B ArrayBuilderReverseLoop
+	
+	ArrayBuilderReverseEnd:
+	LDUR X9, [SP, #0]
+	ADDI SP, SP, #8
+	//DUMP
+	BR X9
+	
+
+Swap: //Parameters(X1 Int0, X2 Int1)
+	
+	//Start
+	SUBI SP, SP, #8		//Make space on stack
+	STUR LR, [SP, #0]	//Store link register
+	
+	//Body
+	LDUR X9, [X1, #0]
+	LDUR X10, [X2, #0]
+	STUR X10, [X1, #0]
+	STUR X9, [X2, #0]
+	
+	//End
+	LDUR X9, [SP, #0]
+	ADDI SP, SP, #8
+	//DUMP
+	BR X9
+
+MinIndex: //Parameters (X0 start, X1 array length)
+//Note: this function returns the index that contains the smallest value
+
+	SUBI SP, SP, #8 //makes space on the stack
+	STUR LR, [SP, #0] //stores link register
+
+	MOVZ X10, #0, LSL #0
+	MOVZ X11, #0, LSL #0
+
+	ADD X10, X10, X0
+	ADDI X10, X10, #8 //i = start + 1
+	ADD X11, X11, X0  //minIndex
+	
+	MinIndex_for_loop:
+	
+		//if (i > array length) exit
+		SUBS X14, X10, X1
+		B.GT MinIndex_end
+		
+		//if i < minIndex
+		LDUR X12, [X10, #0] //array[i]
+		LDUR X13, [X11, #0] //array[minIndex]
+		SUBS X14, X13, X12
+		B.GT MinIndex_less_than
+		
+		B Skip
+		
+		MinIndex_less_than:
+			MOVZ X11, #0, LSL #0
+			ADD X11, X11, X10
+			
+		Skip:
+			ADDI X10, X10, #8
+			B MinIndex_for_loop
+
+	MinIndex_end:
+		LDUR X9, [SP, #0]
+		ADDI SP, SP, #8
+		MOVZ LR, #0, LSL #0
+		ADD LR, LR, X11
+		//DUMP
+		BR X9
+
+SelectionSort: //Parameters (X1 arrayLength)
+	SUBI SP, SP, #24 //makes space on the stack
+	STUR LR, [SP, #0] //stores link register
+	STUR X1, [SP, #8] //stores arrayLength
+	STUR XZR, [SP, #16] //stores swapIndex
+	
+	//init. vars
+	MOVZ X9, #0, LSL #0		//swapIndex
+	
+	//stores into stack
+	STUR X9, [SP, #16]
+	
+	SelectionSortWhile:
+	
+		LDUR X1, [SP, #8]
+	
+		//if (swapIndex >= arrayLength) end
+		SUBS X17, X9, X1
+		B.GE SelectionSortEnd
+		
+		//startIndex = currentIndex
+		MOVZ X0, #0, LSL #0
+		ADD X0, X0, X9
+		
+		//Load in the arrayLength
+		LDUR X1, [SP, #8]
+		
+		//find min and swap it with the swapIndex
+		BL MinIndex //(X0 startIndex, X1 arrayLength)
+		
+		MOVZ X1, #0, LSL #0
+		ADD X1, X1, LR 		//minIndex
+		LDUR X2, [SP, #16]  	//swapIndex
+		
+		BL Swap //(X1, X2)
+		
+		//swapIndex += 1
+		LDUR X9, [SP, #16]
+		ADDI X9, X9, #8
+		STUR X9, [SP, #16]
+		
+		B SelectionSortWhile
+	
+	SelectionSortEnd:
+		LDUR X9, [SP, #0]
+		ADDI SP, SP, #24
+		BR X9
+
+BinarySearchIterative: //Parameters(X2 arrayLength, X1 targetValue)
+//Note: Returns the index of the target value 
+
+	SUBI SP, SP, #8 //makes space on the stack
+	STUR LR, [SP, #0] //stores link register
+
+	
+	MOVZ X9, #0, LSL #0 	//left
+	MOVZ X10, #0, LSL #0 	//right
+	MOVZ X11, #0, LSL #0 	//mid 
+	
+	ADD X10, X10, X2	//adding array length to X10
+	MOVZ X12, #8, LSL #0
+	UDIV X10, X10, X12
+	
+	while_iterative:
+	
+		SUBS X17, X9, X10	//comparing left and right
+		B.GT BadEnd
+		
+		SUB X11, X10, X9	//right - left
+		MOVZ X12, #2, LSL #0	//X12 = 2
+		UDIV X11, X11, X12	//mid = mid / 2
+		ADD X11, X11, X9	//mid + left
+		
+		MOVZ X14, #0, LSL #0
+		ADD X14, X14, X11	
+		LSL X14, X14, #3	//multiply mid by 8 to get the 8bit representation
+		LDUR X13, [X14, #0]	//array[mid]
+
+		SUBS X17, X1, X13	//comparing targetValue and array[mid]
+
+		//PRNT X13
+		//PRNT X1
+		//PRNT X11
+
+		B.EQ GoodEnd
+
+		B.LT ChangeRight
+		
+		B ChangeLeft
+		
+	ChangeLeft:
+		MOVZ X9, #0, LSL #0
+		ADDI X9, X11, #1	//left = mid + 1
+		B while_iterative 	//go through while loop again
+		
+	ChangeRight:
+		MOVZ X10, #0, LSL #0
+		SUBI X10, X11, #1	//right = mid - 1
+		B while_iterative	//go through while loop again
+		
+	GoodEnd:
+		MOVZ LR, #0, LSL #0	
+		ADD LR, LR, X11		//adds mid index
+		LDUR X12, [SP, #0]
+		ADDI SP, SP, #8
+		BR X12
+		
+	BadEnd:
+		MOVZ LR, #420, LSL #0	//adds random value to indicate target was not found
+		LDUR X12, [SP, #0]
+		ADDI SP, SP, #8
+		BR X12
+		
+BinarySearchRecursive: //Parameters (X0 left, X1 right, X2 targetValue)
+
+	//Note: Returns the index of the target value 
+
+	SUBI SP, SP, #8 //makes space on the stack
+	STUR LR, [SP, #0] //stores link register
+	
+	MOVZ X9, #0, LSL #0 	//left
+	MOVZ X10, #0, LSL #0 	//right
+	MOVZ X11, #0, LSL #0 	//mid 
+	
+	ADD X9, X9, X0			//using left parameter
+	ADD X10, X10, X1		//using right parameter
+	
+	SUBS X17, X9, X10	//comparing left and right
+	B.GT BinarySearchRecursiveBadEnd
+	
+	SUB X11, X10, X9	//right - left
+	MOVZ X12, #2, LSL #0//X12 = 2
+	UDIV X11, X11, X12	//mid = mid / 2
+	ADD X11, X11, X9	//mid + left
+	
+	MOVZ X14, #0, LSL #0
+	ADD X14, X14, X11	
+	LSL X14, X14, #3	//multiply mid by 8 to get the 8bit representation
+	LDUR X13, [X14, #0]	//array[mid]
+
+	SUBS X17, X2, X13	//comparing targetValue and array[mid]
+
+	B.EQ BinarySearchRecursiveGoodEnd
+
+	B.LT BinarySearchRecursiveChangeRight
+	
+	B BinarySearchRecursiveChangeLeft
+		
+	BinarySearchRecursiveChangeLeft:
+		MOVZ X0, #0, LSL #0
+		ADD X0, X0, X11
+		ADDI X0, X0, #1
+		BL BinarySearchRecursive
+		B BinarySearchRecursiveGoodEnd
+		
+	BinarySearchRecursiveChangeRight:
+		MOVZ X1, #0, LSL #0
+		ADD X1, X1, X11
+		SUBI X1, X1, #1
+		BL BinarySearchRecursive
+		B BinarySearchRecursiveGoodEnd
+		
+	BinarySearchRecursiveGoodEnd:
+		MOVZ LR, #0, LSL #0
+		ADD LR, LR, X11
+		LDUR X12, [SP, #0]
+		ADDI SP, SP, #8
+		BR X12
+		
+	BinarySearchRecursiveBadEnd:
+		MOVZ LR, #420, LSL #0	//adds random value to indicate target was not found
+		LDUR X12, [SP, #0]
+		ADDI SP, SP, #8
+		BR X12
+
+BinarySearchRecursiveSetup: //Parameters(X0 arrayLength, X1 targetValue)
+	SUBI SP, SP, #8 //makes space on the stack
+	STUR LR, [SP, #0] //stores link register
+	
+	MOVZ X2, #0, LSL #0 //set X2
+	ADD X2, X2, X1
+	
+	MOVZ X1, #0, LSL #0 //set X1
+	ADD X1, X1, X0
+	MOVZ X12, #8, LSL #0
+	UDIV X1, X1, X12
+	
+	MOVZ X0, #0, LSL #0 //set X0
+	
+	BL BinarySearchRecursive
+	
+	LDUR X12, [SP, #0]
+	ADDI SP, SP, #8
+	BR X12
+//---- Functions End ----
+
+//---- Exit Program ----
+mainEnd:
+DUMP

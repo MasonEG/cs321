@@ -1,0 +1,3 @@
+ADD X0, XZR, XZR
+SUBI X0, X0, #3
+PRNT X0
